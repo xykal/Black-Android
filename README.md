@@ -73,6 +73,14 @@ The settings are in the game's own options menu, each page under its own button:
 - **Memory**: 4 GB.
 - **Storage**: 2 GB for the game files and saves.
 
+## 32-bit Android status
+
+32-bit Android (`armeabi-v7a`) is **not supported** yet. Adding the ABI to Gradle is not enough: the pinned Xbox runtime reserves a contiguous 4 GiB guest address space and generated code accesses it directly. A 32-bit process cannot reserve that space. See [the porting notes](docs/32-bit-port.md) for the work and tests needed. The APK continues to target `arm64-v8a` only.
+
+## GitHub Actions
+
+The **Build** workflow can be run manually from Actions on the default branch. It builds the arm64 release APK and uploads it as an artifact without publishing a release. Pushing a `v*` tag also publishes a GitHub release. Both paths require the repository Actions secret `XBE_KEY`, the passphrase for `ci/default.xbe.enc`. Optional release signing secrets are listed in the workflow; without them, the APK is signed with a debug key and cannot upgrade an APK signed with a different key. CI checks the packaged native libraries' ABI and ELF headers before uploading.
+
 ## Building
 Building requires a Windows PC.
 

@@ -8,6 +8,7 @@ name: Build
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -34,9 +35,9 @@ jobs:
           java-version: 17
           cache: gradle
 
-      - name: Android SDK packages
-        shell: cmd
-        run: call "%ANDROID_HOME%\cmdline-tools\latest\bin\sdkmanager.bat" --install "platforms;android-34" "ndk;%NDK_VERSION%" "cmake;%CMAKE_VERSION%" >nul
+      - name: Test APK ABI checker
+        shell: bash
+        run: python -m unittest discover -s tests -v
 
       - name: Decrypt default.xbe
         shell: bash
@@ -52,6 +53,10 @@ jobs:
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in ci/default.xbe.enc -out assets/default.xbe -pass "file:$key"
           rm -f "$key"
           sha1sum assets/default.xbe
+
+      - name: Android SDK packages
+        shell: cmd
+        run: call "%ANDROID_HOME%\cmdline-tools\latest\bin\sdkmanager.bat" --install "platforms;android-34" "ndk;%NDK_VERSION%" "cmake;%CMAKE_VERSION%" >nul
 
       - name: Release key
         shell: bash
@@ -74,13 +79,21 @@ jobs:
         id: version
         shell: bash
         run: |
-          name="${GITHUB_REF_NAME#v}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            name="manual-${GITHUB_RUN_NUMBER}"
+          else
+            name="${GITHUB_REF_NAME#v}"
+          fi
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "GRADLE_ARGS=-PversionCode=${{ github.run_number }} -PversionName=$name" >> "$GITHUB_ENV"
 
       - name: Build
         shell: cmd
         run: call build.bat
+
+      - name: Verify APK native libraries
+        shell: bash
+        run: python tools/check_apk_abis.py app/build/outputs/apk/release/app-release.apk
 
       - name: Name the APK
         shell: bash
@@ -93,13 +106,14 @@ jobs:
           if-no-files-found: error
 
       - name: Release notes
+        if: github.event_name == 'push'
         shell: bash
         run: |
           apk="Black-${{ steps.version.outputs.name }}.apk"
           size=$(awk -v b="$(stat -c %s "$apk")" 'BEGIN { printf "%.1f MB", b / 1048576 }')
           sha=$(sha256sum "$apk" | cut -d' ' -f1)
           sed -e "s|{{VERSION}}|$GITHUB_REF_NAME|g" -e "s|{{TAG}}|$GITHUB_REF_NAME|g" -e "s|{{APK}}|$apk|g" \
-              -e "s|{{SIZE}}|$size|g" -e "s|{{SHA256}}|$sha|g" ci/release-notes.md > "$RUNNER_TEMP/release-notes.md"
+              -e "s|{{SIZE}}|$size|g" -e "s|{{SHA256}}|$sha|g" -e "s|{{REPOSITORY}}|$GITHUB_REPOSITORY|g" ci/release-notes.md > "$RUNNER_TEMP/release-notes.md"
           # the commits since the previous tag, which the app's update dialog shows too
           prev=$(git describe --tags --abbrev=0 --match 'v*' "$GITHUB_REF_NAME^" 2>/dev/null || true)
           {
@@ -110,6 +124,7 @@ jobs:
           } >> "$RUNNER_TEMP/release-notes.md"
 
       - name: Release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           name: Black for Android ${{ github.ref_name }}

@@ -23,7 +23,7 @@
 
 | File | Size | SHA-256 |
 | --- | --- | --- |
-| [`{{APK}}`](https://github.com/RanggaCasper/Black-Android/releases/download/{{TAG}}/{{APK}}) | {{SIZE}} | `{{SHA256}}` |
+| [`{{APK}}`](https://github.com/{{REPOSITORY}}/releases/download/{{TAG}}/{{APK}}) | {{SIZE}} | `{{SHA256}}` |
 
 ## 🚀 Installation
 

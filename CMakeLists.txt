@@ -5,6 +5,12 @@
 cmake_minimum_required(VERSION 3.22)
 project(black_android LANGUAGES C CXX)
 
+# The pinned runtime relies on a single contiguous 4 GiB guest address space.
+# A 32-bit process cannot reserve that space; enabling an ABI alone is unsafe.
+if(ANDROID AND CMAKE_SIZEOF_VOID_P LESS 8)
+    message(FATAL_ERROR "32-bit Android is not supported: the Xbox runtime requires a contiguous 4 GiB guest address space. See docs/32-bit-port.md.")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
